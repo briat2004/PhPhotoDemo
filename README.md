@@ -17,6 +17,8 @@ PhPhotoDelegate Implementation getImageArrayWith
 
 Demo:
 
+import UIKit
+
 class ViewController: UIViewController, PhPhotoDelegate, UITableViewDelegate, UITableViewDataSource {
     
     let addImageButton = UIButton()
