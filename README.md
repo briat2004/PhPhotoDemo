@@ -1,7 +1,7 @@
 # PhPhotoDemo
 camera and photo library
 
-How to use.
+How to use:
 
 init PhPhoto(target: Any) class
 target is self ViewController
