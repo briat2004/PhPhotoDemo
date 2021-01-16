@@ -3,8 +3,16 @@ camera and photo library
 
 How to use:
 
-init PhPhoto(target: Any) class
-target is self ViewController
+info.plist add:
+Privacy - Photo Library Usage Description
+Privacy - Photo Library Additions Usage Description
+Privacy - Camera Usage Description
+Prevent limited photos access alert to YES
+
+initialize PhPhoto class
+parameter "target" insert self is UIViewController
+PhPhotoDelegate Implementation getImageArrayWith
+
 
 
 Demo:
