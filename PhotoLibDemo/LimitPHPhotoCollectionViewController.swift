@@ -6,6 +6,7 @@
 //
 
 import UIKit
+import PhotosUI
 
 private let reuseIdentifier = "PHPhotoImageCell"
 
@@ -33,6 +34,10 @@ class LimitPHPhotoCollectionViewController: UIViewController,UICollectionViewDel
     }()
     
     var imageModelArr: [LimitImageModel]?
+    
+    deinit {
+        print(type(of: self))
+    }
     
     override func viewDidLoad() {
         super.viewDidLoad()
@@ -63,10 +68,14 @@ class LimitPHPhotoCollectionViewController: UIViewController,UICollectionViewDel
     }
     
     func collectionView(_ collectionView: UICollectionView, didSelectItemAt indexPath: IndexPath) {
-        guard let image = imageModelArr?[indexPath.row].image else { return }
-        let previewImageVc = PreviewImageViewController()
-        previewImageVc.setImage(image: image)
-        self.present(previewImageVc, animated: true, completion: nil)
+        //获取原图
+        guard let asset = imageModelArr?[indexPath.row].phAsset else { return }
+        PHImageManager.default().requestImage(for: asset, targetSize: PHImageManagerMaximumSize , contentMode: .default, options: nil, resultHandler: { (image, _: [AnyHashable : Any]?) in
+            guard let image = image else { return }
+            let previewImageVc = PreviewImageViewController()
+            previewImageVc.setImage(image: image)
+            self.present(previewImageVc, animated: true, completion: nil)
+        })
     }
     
     func collectionView(_ collectionView: UICollectionView, layout collectionViewLayout: UICollectionViewLayout, minimumInteritemSpacingForSectionAt section: Int) -> CGFloat {
@@ -103,17 +112,27 @@ class LimitPHPhotoCollectionViewController: UIViewController,UICollectionViewDel
     
     func navViewDonePress() {
         var imageArr = [UIImage]()
+        var isSelectCount = 0
+        var count = 0
         if topNavView.cancelButton.isEnabled {
             guard let imageModelArr = imageModelArr else { return }
             for item in imageModelArr {
-                guard let image = item.image, let isSelect = item.isSelect else { return }
+                guard let asset = item.phAsset, let isSelect = item.isSelect else { return }
                 if isSelect {
-                    imageArr.append(image)
+                    isSelectCount += 1
+//                    print("isSelectCount")
+                    PHImageManager.default().requestImage(for: asset, targetSize: PHImageManagerMaximumSize , contentMode: .default, options: nil, resultHandler: { (image, _: [AnyHashable : Any]?) in
+                        guard let image = image else { return }
+                        count += 1
+//                        print("count")
+                        imageArr.append(image)
+                        if count == isSelectCount {
+                            guard let delegate = self.delegate else { return }
+                            delegate.getLimitImage(image: imageArr)
+                            self.dismiss(animated: true, completion: nil)
+                        }
+                    })
                 }
-            }
-            self.dismiss(animated: true) { [weak self] in
-                guard let self = self, let delegate = self.delegate else { return }
-                delegate.getLimitImage(image: imageArr)
             }
         }
     }

@@ -22,6 +22,7 @@ protocol PhPhotoDelegate: NSObject {
 class PhPhoto: NSObject, UINavigationControllerDelegate {
     
     var coll = LimitPHPhotoCollectionViewController()
+    var itemSize: CGSize?
     var sourceType: SourceType?
     private weak var delegate: PhPhotoDelegate?
     private var selecLimit = 1
@@ -211,8 +212,10 @@ extension PhPhoto: PHPhotoLibraryChangeObserver, LimitPHPhotoDelegate {
     
     
     func handleChangedLibrary(selectionLimit: Int, isPresent: Bool = false) {
-        guard let vc = self.delegate as? UIViewController else { return }
         DispatchQueue.main.async {
+            let scale = UIScreen.main.scale
+            self.itemSize = CGSize(width: ((self.delegate as? UIViewController)!.view.frame.width / 3 - 1)*scale, height: ((self.delegate as? UIViewController)!.view.frame.width / 3 - 1)*scale)
+            guard let vc = self.delegate as? UIViewController, let itemSize = self.itemSize else { return }
             //reloadData一次
             var fetchResultCount = 0
             var imageCount = 0
@@ -233,11 +236,11 @@ extension PhPhoto: PHPhotoLibraryChangeObserver, LimitPHPhotoDelegate {
                 let requestOpeion = PHImageRequestOptions()
                 requestOpeion.resizeMode = .exact
                 requestOpeion.deliveryMode = .highQualityFormat
-                PHImageManager.default().requestImage(for: obj, targetSize: PHImageManagerMaximumSize, contentMode: .default, options: requestOpeion) { (image, info) in
+                PHImageManager.default().requestImage(for: obj, targetSize: itemSize, contentMode: .aspectFill, options: requestOpeion) { (image, info) in
                     //篩選出共幾張為圖片
                     imageCount += 1
                     guard let image = image else {return}
-                    self.coll.imageModelArr?.append(LimitImageModel(image: image, isSelect: false))
+                    self.coll.imageModelArr?.append(LimitImageModel(image: image, isSelect: false, phAsset: obj))
                     //結束判斷是否為image 有些影片會被帶入所以自定義count
                     if fetchResultCount == imageCount {
                         //判斷是否present過vc 如果present過則reloadData 退出function
@@ -245,7 +248,7 @@ extension PhPhoto: PHPhotoLibraryChangeObserver, LimitPHPhotoDelegate {
                             self.coll.collectionView.reloadData()
                             return
                         }
-                        //因為系統observer不會把isPresent參數帶入，所以預設為不present
+                        //系統observer不會把isPresent參數帶入，所以預設為不present
                         //前段註解沒推過才會進入這一行 如果為系統observer則不present 如果點擊事件則present
                         if isPresent {
                             vc.present(self.coll, animated: true, completion: nil)

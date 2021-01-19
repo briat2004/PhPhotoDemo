@@ -7,6 +7,7 @@
 
 import Foundation
 import UIKit
+import Photos
 
 let Selected_Image_Name = "myAppCheckbox02_selected"
 let Unselected_Image_Name = "myAppCheckbox02_normal"
@@ -16,9 +17,12 @@ class LimitImageModel {
     
     var image: UIImage?
     var isSelect: Bool?
+    var phAsset: PHAsset?
     
-    init(image: UIImage, isSelect: Bool) {
+    
+    init(image: UIImage, isSelect: Bool, phAsset: PHAsset) {
         self.image = image
         self.isSelect = isSelect
+        self.phAsset = phAsset
     }
 }
