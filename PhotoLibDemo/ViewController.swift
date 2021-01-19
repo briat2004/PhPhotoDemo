@@ -14,6 +14,9 @@ class ViewController: UIViewController, PhPhotoDelegate, UITableViewDelegate, UI
     let camera = UIButton()
     var photo: PhPhoto?
     
+    var loadingView = UIActivityIndicatorView()
+    
+    
     var tableView: UITableView = {
         let tableView = UITableView()
         tableView.translatesAutoresizingMaskIntoConstraints = false
@@ -27,6 +30,21 @@ class ViewController: UIViewController, PhPhotoDelegate, UITableViewDelegate, UI
         
         setupViews()
         photo = PhPhoto(target: self)
+        
+        photo?.isLoadingCallBack = { [weak self] (isLoading, vc) in
+            print(isLoading, vc)
+            guard let self = self else { return }
+            self.loadingView.translatesAutoresizingMaskIntoConstraints = false
+            vc.view.addSubview(self.loadingView)
+            self.loadingView.centerYAnchor.constraint(equalTo: vc.view.centerYAnchor).isActive = true
+            self.loadingView.centerXAnchor.constraint(equalTo: vc.view.centerXAnchor).isActive = true
+            self.loadingView.heightAnchor.constraint(equalToConstant: 50).isActive = true
+            self.loadingView.widthAnchor.constraint(equalToConstant: 50).isActive = true
+            self.loadingView.color = .gray
+            self.loadingView.style = .large
+            isLoading ? self.loadingView.startAnimating() : self.loadingView.stopAnimating()
+            
+        }
         
     }
     
@@ -47,6 +65,7 @@ class ViewController: UIViewController, PhPhotoDelegate, UITableViewDelegate, UI
         tableView.delegate = self
         tableView.dataSource = self
         tableView.register(UITableViewCell.self, forCellReuseIdentifier: "Cell")
+        
     }
     
     
@@ -61,6 +80,7 @@ class ViewController: UIViewController, PhPhotoDelegate, UITableViewDelegate, UI
         DispatchQueue.main.async {
             self.tableView.reloadData()
         }
+//        photo = nil
     }
     
     func tableView(_ tableView: UITableView, numberOfRowsInSection section: Int) -> Int {

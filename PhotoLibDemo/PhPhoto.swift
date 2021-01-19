@@ -20,10 +20,12 @@ protocol PhPhotoDelegate: NSObject {
 }
 
 class PhPhoto: NSObject, UINavigationControllerDelegate {
-    
+    typealias isLoading = (Bool, UIViewController) -> ()
     var coll = LimitPHPhotoCollectionViewController()
     var itemSize: CGSize?
     var sourceType: SourceType?
+    var isLoadingCallBack: isLoading?
+    
     private weak var delegate: PhPhotoDelegate?
     private var selecLimit = 1
     
@@ -223,7 +225,7 @@ extension PhPhoto: PHPhotoLibraryChangeObserver, LimitPHPhotoDelegate {
             self.coll.selectionLimit = selectionLimit
             self.coll.imageModelArr = [LimitImageModel]()
             self.coll.modalPresentationStyle = .fullScreen
-            //如果沒有推過vc 重新初始化imageModelArr reloadData (因為不會進fetchResult.enumerateObjects)
+            //如果有推過vc 重新初始化imageModelArr reloadData (因為不會進fetchResult.enumerateObjects)
             if vc.presentedViewController != nil {
                 self.coll.collectionView.reloadData()
             }
@@ -237,12 +239,20 @@ extension PhPhoto: PHPhotoLibraryChangeObserver, LimitPHPhotoDelegate {
                 requestOpeion.resizeMode = .exact
                 requestOpeion.deliveryMode = .highQualityFormat
                 PHImageManager.default().requestImage(for: obj, targetSize: itemSize, contentMode: .aspectFill, options: requestOpeion) { (image, info) in
+                    //imageCount=0第一次進來以及有present過頁面
+                    if (imageCount == 0 && vc.presentedViewController != nil) {
+                        self.isLoadingCallBack!(true, self.coll)
+                    //第一次進來 需要present頁面
+                    } else if  imageCount == 0 && isPresent {
+                        self.isLoadingCallBack!(true, vc)
+                    }
                     //篩選出共幾張為圖片
                     imageCount += 1
                     guard let image = image else {return}
                     self.coll.imageModelArr?.append(LimitImageModel(image: image, isSelect: false, phAsset: obj))
                     //結束判斷是否為image 有些影片會被帶入所以自定義count
                     if fetchResultCount == imageCount {
+                        self.isLoadingCallBack!(false, vc)
                         //判斷是否present過vc 如果present過則reloadData 退出function
                         if vc.presentedViewController != nil {
                             self.coll.collectionView.reloadData()
