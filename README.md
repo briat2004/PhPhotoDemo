@@ -13,6 +13,10 @@ initialize PhPhoto class
 parameter "target" insert self is UIViewController
 PhPhotoDelegate Implementation getImageArrayWith
 
+photo?.isLoadingCallBack = { [weak self] (isLoading, vc) in
+//if you have loadingview
+}
+
 
 
 Demo:
