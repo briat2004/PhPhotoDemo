@@ -94,7 +94,6 @@ class ViewController: UIViewController, PhPhotoDelegate, UITableViewDelegate, UI
     
     func getImageArrayWith(phPhoto: PhPhoto, sourceType: SourceType, imageArray: [UIImage]?) {
         guard let imageArray = imageArray else { return }
-//        print(sourceType ,imageArray.count, imageArray)
         imageArr = imageArray
         DispatchQueue.main.async {
             self.tableView.reloadData()
