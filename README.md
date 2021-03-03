@@ -86,16 +86,24 @@ class ViewController: UIViewController, PhPhotoDelegate, UITableViewDelegate, UI
     
     
     @objc func addImageAction() {
-        photo?.addImageAction(selectionLimit: 5)
+        if self.photo == nil {
+            photo = PhPhoto(target: self)
+        }
+        photo?.addImageAction(selectionLimit: 1)
     }
     
     func getImageArrayWith(phPhoto: PhPhoto, sourceType: SourceType, imageArray: [UIImage]?) {
         guard let imageArray = imageArray else { return }
+//        print(sourceType ,imageArray.count, imageArray)
         imageArr = imageArray
         DispatchQueue.main.async {
             self.tableView.reloadData()
         }
-        photo = nil
+        self.photo = nil
+    }
+    
+    func phPhotoCanceled() {
+        self.photo = nil
     }
     
     func tableView(_ tableView: UITableView, numberOfRowsInSection section: Int) -> Int {
@@ -104,7 +112,9 @@ class ViewController: UIViewController, PhPhotoDelegate, UITableViewDelegate, UI
     
     func tableView(_ tableView: UITableView, cellForRowAt indexPath: IndexPath) -> UITableViewCell {
         let cell = tableView.dequeueReusableCell(withIdentifier: "Cell", for: indexPath)
-        cell.imageView?.image = imageArr?[indexPath.row]
+        let image = imageArr?[indexPath.row]
+        let newImage = image?.imageWithNewSize(size: CGSize(width: 1024, height: 1024))
+        cell.imageView?.image = UIImage(data: (newImage?.compressImageMid(maxLength: 1024 * 1024))!)
         return cell
     }
     
@@ -112,4 +122,3 @@ class ViewController: UIViewController, PhPhotoDelegate, UITableViewDelegate, UI
         return 100
     }
 }
-
