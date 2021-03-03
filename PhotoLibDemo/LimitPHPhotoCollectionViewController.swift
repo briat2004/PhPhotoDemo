@@ -77,6 +77,12 @@ class LimitPHPhotoCollectionViewController: UIViewController,UICollectionViewDel
             }
             
         }
+        if assets.count == 0 {
+            DispatchQueue.main.async {
+                self.imageModelArr?.removeAll()
+                self.collectionView.reloadData()
+            }
+        }
     }
     
     func numberOfSections(in collectionView: UICollectionView) -> Int {
