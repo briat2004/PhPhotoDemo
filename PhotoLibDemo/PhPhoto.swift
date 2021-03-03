@@ -23,7 +23,6 @@ protocol PhPhotoDelegate: NSObject {
 class PhPhoto: NSObject, UINavigationControllerDelegate {
     
     typealias isLoading = (Bool, UIViewController) -> ()
-//    var coll: LimitPHPhotoCollectionViewController?
     var itemSize: CGSize?
     var sourceType: SourceType?
     var isLoadingCallBack: isLoading?

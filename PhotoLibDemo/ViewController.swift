@@ -70,24 +70,19 @@ class ViewController: UIViewController, PhPhotoDelegate, UITableViewDelegate, UI
     
     
     @objc func addImageAction() {
-        if self.photo == nil {
-            photo = PhPhoto(target: self)
-        }
         photo?.addImageAction(selectionLimit: 1)
     }
     
     func getImageArrayWith(phPhoto: PhPhoto, sourceType: SourceType, imageArray: [UIImage]?) {
         guard let imageArray = imageArray else { return }
-//        print(sourceType ,imageArray.count, imageArray)
         imageArr = imageArray
         DispatchQueue.main.async {
             self.tableView.reloadData()
         }
-        self.photo = nil
     }
     
     func phPhotoCanceled() {
-        self.photo = nil
+        print("phphoto cancel")
     }
     
     func tableView(_ tableView: UITableView, numberOfRowsInSection section: Int) -> Int {
