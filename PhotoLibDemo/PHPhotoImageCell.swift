@@ -28,6 +28,10 @@ class PHPhotoImageCell: UICollectionViewCell {
         }
     }
     
+    deinit {
+        print(type(of: self))
+    }
+    
     var imageView: UIImageView = {
         let iv = UIImageView()
         iv.translatesAutoresizingMaskIntoConstraints = false

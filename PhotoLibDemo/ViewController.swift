@@ -70,7 +70,10 @@ class ViewController: UIViewController, PhPhotoDelegate, UITableViewDelegate, UI
     
     
     @objc func addImageAction() {
-        photo?.addImageAction(selectionLimit: 5)
+        if self.photo == nil {
+            photo = PhPhoto(target: self)
+        }
+        photo?.addImageAction(selectionLimit: 1)
     }
     
     func getImageArrayWith(phPhoto: PhPhoto, sourceType: SourceType, imageArray: [UIImage]?) {
@@ -80,7 +83,11 @@ class ViewController: UIViewController, PhPhotoDelegate, UITableViewDelegate, UI
         DispatchQueue.main.async {
             self.tableView.reloadData()
         }
-//        photo = nil
+        self.photo = nil
+    }
+    
+    func phPhotoCanceled() {
+        self.photo = nil
     }
     
     func tableView(_ tableView: UITableView, numberOfRowsInSection section: Int) -> Int {
@@ -89,12 +96,83 @@ class ViewController: UIViewController, PhPhotoDelegate, UITableViewDelegate, UI
     
     func tableView(_ tableView: UITableView, cellForRowAt indexPath: IndexPath) -> UITableViewCell {
         let cell = tableView.dequeueReusableCell(withIdentifier: "Cell", for: indexPath)
-        cell.imageView?.image = imageArr?[indexPath.row]
+        let image = imageArr?[indexPath.row]
+        let newImage = image?.imageWithNewSize(size: CGSize(width: 1024, height: 1024))
+        cell.imageView?.image = UIImage(data: (newImage?.compressImageMid(maxLength: 1024 * 1024))!)
         return cell
     }
     
     func tableView(_ tableView: UITableView, heightForRowAt indexPath: IndexPath) -> CGFloat {
         return 100
     }
+}
+
+extension UIImage {
+    //二分壓縮法
+    func compressImageMid(maxLength: Int) -> Data? {
+        var compression: CGFloat = 1
+        guard var data = self.jpegData(compressionQuality: 1) else { return nil }
+        if data.count < maxLength {
+            return data
+        }
+        print("壓縮前kb", data.count / 1024, "KB")
+        var max: CGFloat = 1
+        var min: CGFloat = 0
+        for _ in 0..<6 {
+            compression = (max + min) / 2
+            data = self.jpegData(compressionQuality: compression)!
+            if CGFloat(data.count) < CGFloat(maxLength) * 0.9 {
+                min = compression
+            } else if data.count > maxLength {
+                max = compression
+            } else {
+                break
+            }
+        }
+        var resultImage: UIImage = UIImage(data: data)!
+        
+            return data
+        
+    }
+    
+    public func imageWithNewSize(size: CGSize) -> UIImage? {
+        
+        if self.size.height > size.height {
+            
+            let width = size.height / self.size.height * self.size.width
+            
+            let newImgSize = CGSize(width: width, height: size.height)
+            
+            UIGraphicsBeginImageContext(newImgSize)
+            
+            self.draw(in: CGRect(x: 0, y: 0, width: newImgSize.width, height: newImgSize.height))
+            
+            let theImage = UIGraphicsGetImageFromCurrentImageContext()
+            
+            UIGraphicsEndImageContext()
+            
+            guard let newImg = theImage else { return  nil}
+            
+            return newImg
+            
+        } else {
+            
+            let newImgSize = CGSize(width: size.width, height: size.height)
+            
+            UIGraphicsBeginImageContext(newImgSize)
+            
+            self.draw(in: CGRect(x: 0, y: 0, width: newImgSize.width, height: newImgSize.height))
+            
+            let theImage = UIGraphicsGetImageFromCurrentImageContext()
+            
+            UIGraphicsEndImageContext()
+            
+            guard let newImg = theImage else { return  nil}
+            
+            return newImg
+        }
+        
+    }
+
 }
 

@@ -17,11 +17,13 @@ enum SourceType {
 
 protocol PhPhotoDelegate: NSObject {
     func getImageArrayWith(phPhoto: PhPhoto, sourceType: SourceType, imageArray: [UIImage]?)
+    func phPhotoCanceled()
 }
 
 class PhPhoto: NSObject, UINavigationControllerDelegate {
+    
     typealias isLoading = (Bool, UIViewController) -> ()
-    var coll = LimitPHPhotoCollectionViewController()
+//    var coll: LimitPHPhotoCollectionViewController?
     var itemSize: CGSize?
     var sourceType: SourceType?
     var isLoadingCallBack: isLoading?
@@ -30,13 +32,11 @@ class PhPhoto: NSObject, UINavigationControllerDelegate {
     private var selecLimit = 1
     
     deinit {
-        PHPhotoLibrary.shared().unregisterChangeObserver(self)
         print(type(of: self))
     }
     
     init(target: Any) {
         super.init()
-        PHPhotoLibrary.shared().register(self)
         self.delegate = target as? PhPhotoDelegate
     }
     
@@ -97,7 +97,11 @@ class PhPhoto: NSObject, UINavigationControllerDelegate {
             openPhotoAlbum(selectionLimit: selectionLimit)
         case .limited:
             if #available(iOS 14, *) {
-                handleChangedLibrary(selectionLimit: selectionLimit, isPresent: true)
+                guard let vc = delegate as? UIViewController else { return }
+                let coll = LimitPHPhotoCollectionViewController()
+                coll.delegate = self
+                coll.selectionLimit = selectionLimit
+                vc.present(coll, animated: true, completion: nil)
             }
         case .notDetermined: //未決定,請求授權
             PHPhotoLibrary.requestAuthorization({ (status) in
@@ -206,74 +210,14 @@ extension PhPhoto: UIImagePickerControllerDelegate {
     }
 }
 
-extension PhPhoto: PHPhotoLibraryChangeObserver, LimitPHPhotoDelegate {
-    
-    func photoLibraryDidChange(_ changeInstance: PHChange) {
-        handleChangedLibrary(selectionLimit: selecLimit)
-    }
-    
-    
-    func handleChangedLibrary(selectionLimit: Int, isPresent: Bool = false) {
-        DispatchQueue.main.async {
-            let scale = UIScreen.main.scale
-            self.itemSize = CGSize(width: ((self.delegate as? UIViewController)!.view.frame.width / 3 - 1)*scale, height: ((self.delegate as? UIViewController)!.view.frame.width / 3 - 1)*scale)
-            guard let vc = self.delegate as? UIViewController, let itemSize = self.itemSize else { return }
-            //reloadData一次
-            var fetchResultCount = 0
-            var imageCount = 0
-            self.coll.delegate = self
-            self.coll.selectionLimit = selectionLimit
-            self.coll.imageModelArr = [LimitImageModel]()
-            self.coll.modalPresentationStyle = .fullScreen
-            //如果有推過vc 重新初始化imageModelArr reloadData (因為不會進fetchResult.enumerateObjects)
-            if vc.presentedViewController != nil {
-                self.coll.collectionView.reloadData()
-            }
-            let fetchOptions = PHFetchOptions()
-            fetchOptions.sortDescriptors = [NSSortDescriptor(key: "creationDate", ascending: false)]
-            let fetchResult = PHAsset.fetchAssets(with: .image, options: fetchOptions)
-            fetchResult.enumerateObjects { (obj, boo, stop) in
-                //總共幾個obj
-                fetchResultCount += 1
-                let requestOpeion = PHImageRequestOptions()
-                requestOpeion.resizeMode = .exact
-                requestOpeion.deliveryMode = .highQualityFormat
-                PHImageManager.default().requestImage(for: obj, targetSize: itemSize, contentMode: .aspectFill, options: requestOpeion) { (image, info) in
-                    //imageCount=0第一次進來以及有present過頁面
-                    guard let isLoadingCallBack = self.isLoadingCallBack else { return }
-                    if (imageCount == 0 && vc.presentedViewController != nil) {
-                        isLoadingCallBack(true, self.coll)
-                    //第一次進來 需要present頁面
-                    } else if  imageCount == 0 && isPresent {
-                        isLoadingCallBack(true, vc)
-                    }
-                    //篩選出共幾張為圖片
-                    imageCount += 1
-                    guard let image = image else {return}
-                    self.coll.imageModelArr?.append(LimitImageModel(image: image, isSelect: false, phAsset: obj))
-                    //結束判斷是否為image 有些影片會被帶入所以自定義count
-                    if fetchResultCount == imageCount {
-                        isLoadingCallBack(false, vc)
-                        //判斷是否present過vc 如果present過則reloadData 退出function
-                        if vc.presentedViewController != nil {
-                            self.coll.collectionView.reloadData()
-                            return
-                        }
-                        //系統observer不會把isPresent參數帶入，所以預設為不present
-                        //前段註解沒推過才會進入這一行 如果為系統observer則不present 如果點擊事件則present
-                        if isPresent {
-                            vc.present(self.coll, animated: true, completion: nil)
-                            self.coll.collectionView.reloadData()
-                        }
-                    }
-                }
-            }
-        }
+extension PhPhoto: LimitPHPhotoDelegate{
+    func phPhotoDidCancel() {
+        self.delegate?.phPhotoCanceled()
     }
     
     func getLimitImage(image: [UIImage]) {
-        guard let sourceType = sourceType, let delegate = self.delegate else { return }
-        delegate.getImageArrayWith(phPhoto: self, sourceType: sourceType, imageArray: image)
+        guard let sourceType = sourceType else { return }
+        self.delegate?.getImageArrayWith(phPhoto: self, sourceType: sourceType, imageArray: image)
     }
 }
 

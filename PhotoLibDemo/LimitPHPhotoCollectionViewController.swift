@@ -12,9 +12,10 @@ private let reuseIdentifier = "PHPhotoImageCell"
 
 protocol LimitPHPhotoDelegate: NSObject {
     func getLimitImage(image: [UIImage])
+    func phPhotoDidCancel()
 }
 
-class LimitPHPhotoCollectionViewController: UIViewController,UICollectionViewDelegate, UICollectionViewDataSource , UICollectionViewDelegateFlowLayout, LimitImageNavViewDelegate, PHPhotoImageCellDelegate {
+class LimitPHPhotoCollectionViewController: UIViewController,UICollectionViewDelegate, UICollectionViewDataSource , UICollectionViewDelegateFlowLayout, LimitImageNavViewDelegate, PHPhotoImageCellDelegate, PHPhotoLibraryChangeObserver {
     
     weak var delegate: LimitPHPhotoDelegate?
     var selectionLimit: Int?
@@ -34,28 +35,59 @@ class LimitPHPhotoCollectionViewController: UIViewController,UICollectionViewDel
     }()
     
     var imageModelArr: [LimitImageModel]?
+    var fetchList: PHFetchResult<PHAsset>?
     
     deinit {
+        PHPhotoLibrary.shared().unregisterChangeObserver(self)
         print(type(of: self))
     }
     
     override func viewDidLoad() {
         super.viewDidLoad()
+        PHPhotoLibrary.shared().register(self)
         setupViews()
         self.collectionView.register(PHPhotoImageCell.self, forCellWithReuseIdentifier: reuseIdentifier)
         collectionView.delegate = self
         collectionView.dataSource = self
+        fetchImages()
+    }
+    
+    //抓所選圖片
+    func fetchImages() {
+        imageModelArr = [LimitImageModel]()
+        let option = PHFetchOptions()
+        option.sortDescriptors = [NSSortDescriptor(key: "creationDate", ascending: false)]
+        self.fetchList = PHAsset.fetchAssets(with: PHAssetMediaType.image, options: option)
+        var assets: [PHAsset] = [PHAsset]()
+        self.fetchList?.enumerateObjects({ (obj, idx, stop) in
+            let asset = obj as PHAsset
+            //            print("照片名:", asset.value(forKey: "filename"))
+            assets.append(asset)
+        })
+        //        let numStr = "全部圖片名: \(assets.count)"
+        for set in assets {
+            let options = PHImageRequestOptions()
+            options.deliveryMode = .highQualityFormat
+            DispatchQueue.main.async {
+                PHImageManager.default().requestImage(for: set, targetSize: CGSize(width: self.view.frame.width / 2.4, height: self.view.frame.width / 2.4), contentMode: .aspectFit, options: options) { [weak self] (image, info) in
+                    guard let image = image else { return }
+                    self?.imageModelArr?.append(LimitImageModel(image: image, isSelect: false, phAsset: set))
+                    self?.collectionView.reloadData()
+                }
+            }
+            
+        }
     }
     
     func numberOfSections(in collectionView: UICollectionView) -> Int {
         return 1
     }
-
-
+    
+    
     func collectionView(_ collectionView: UICollectionView, numberOfItemsInSection section: Int) -> Int {
         return imageModelArr?.count ?? 0
     }
-
+    
     func collectionView(_ collectionView: UICollectionView, cellForItemAt indexPath: IndexPath) -> UICollectionViewCell {
         let cell = collectionView.dequeueReusableCell(withReuseIdentifier: reuseIdentifier, for: indexPath) as? PHPhotoImageCell
         cell?.selectionLimit = self.selectionLimit
@@ -70,12 +102,14 @@ class LimitPHPhotoCollectionViewController: UIViewController,UICollectionViewDel
     func collectionView(_ collectionView: UICollectionView, didSelectItemAt indexPath: IndexPath) {
         //获取原图
         guard let asset = imageModelArr?[indexPath.row].phAsset else { return }
-        PHImageManager.default().requestImage(for: asset, targetSize: PHImageManagerMaximumSize , contentMode: .default, options: nil, resultHandler: { (image, _: [AnyHashable : Any]?) in
-            guard let image = image else { return }
-            let previewImageVc = PreviewImageViewController()
-            previewImageVc.setImage(image: image)
-            self.present(previewImageVc, animated: true, completion: nil)
-        })
+        DispatchQueue.main.async {
+            PHImageManager.default().requestImage(for: asset, targetSize: PHImageManagerMaximumSize , contentMode: .default, options: nil, resultHandler: { [weak self] (image, _: [AnyHashable : Any]?) in
+                guard let image = image else { return }
+                let previewImageVc = PreviewImageViewController()
+                previewImageVc.setImage(image: image)
+                self?.present(previewImageVc, animated: true, completion: nil)
+            })
+        }
     }
     
     func collectionView(_ collectionView: UICollectionView, layout collectionViewLayout: UICollectionViewLayout, minimumInteritemSpacingForSectionAt section: Int) -> CGFloat {
@@ -92,11 +126,10 @@ class LimitPHPhotoCollectionViewController: UIViewController,UICollectionViewDel
     
     //選照片
     func selectImageWith(isSelected: Bool, index: Int) {
-        
-        imageModelArr?[index].isSelect = isSelected
+        guard let imageModelArr = imageModelArr else { return }
+        imageModelArr[index].isSelect = isSelected
         
         topNavView.doneButton.isEnabled = false
-        guard let imageModelArr = imageModelArr else { return }
         for item in imageModelArr {
             if item.isSelect! {
                 topNavView.doneButton.isEnabled = true
@@ -107,34 +140,32 @@ class LimitPHPhotoCollectionViewController: UIViewController,UICollectionViewDel
     }
     
     func navViewCancelPress() {
+        self.delegate?.phPhotoDidCancel()
         self.dismiss(animated: true, completion: nil)
     }
     
+    //把選取的相片傳出去
     func navViewDonePress() {
+        guard let imageModelArr = imageModelArr else { return }
         var imageArr = [UIImage]()
-        var isSelectCount = 0
-        var count = 0
         if topNavView.cancelButton.isEnabled {
-            guard let imageModelArr = imageModelArr else { return }
-            for item in imageModelArr {
-                guard let asset = item.phAsset, let isSelect = item.isSelect else { return }
-                if isSelect {
-                    isSelectCount += 1
-//                    print("isSelectCount")
-                    PHImageManager.default().requestImage(for: asset, targetSize: PHImageManagerMaximumSize , contentMode: .default, options: nil, resultHandler: { (image, _: [AnyHashable : Any]?) in
-                        guard let image = image else { return }
-                        count += 1
-//                        print("count")
-                        imageArr.append(image)
-                        if count == isSelectCount {
-                            guard let delegate = self.delegate else { return }
-                            delegate.getLimitImage(image: imageArr)
-                            self.dismiss(animated: true, completion: nil)
-                        }
-                    })
+            let assets = imageModelArr.filter({$0.isSelect == true})
+            for asset in assets {
+                    guard let phAsset = asset.phAsset else { return }
+                PHImageManager.default().requestImageDataAndOrientation(for: phAsset, options: nil) { [weak self] (data, str, CGImagePropertyOrientation, info) in
+                    guard let data = data, let image = UIImage(data: data) else { return }
+                    imageArr.append(image)
+                    if imageArr.count == assets.count {
+                        self?.delegate?.getLimitImage(image: imageArr)
+                        self?.dismiss(animated: true, completion: nil)
+                    }
                 }
             }
         }
+    }
+    
+    func photoLibraryDidChange(_ changeInstance: PHChange) {
+        fetchImages()
     }
     
     func setupViews() {
@@ -164,7 +195,7 @@ class LimitPHPhotoCollectionViewController: UIViewController,UICollectionViewDel
         collectionView.topAnchor.constraint(equalTo: topNavView.bottomAnchor).isActive = true
         collectionView.bottomAnchor.constraint(equalTo: bottom).isActive = true
     }
-
+    
     
     
 }

@@ -34,6 +34,10 @@ class PreviewImageViewController: UIViewController, UIScrollViewDelegate {
         return btn
     }()
     
+    deinit {
+        print(type(of: self))
+    }
+    
     override func viewDidLoad() {
         super.viewDidLoad()
         self.setupViews()
